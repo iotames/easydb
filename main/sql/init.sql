@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS users (
+    -- id INT AUTO_INCREMENT PRIMARY KEY, --MySQL
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50),
+    age INT
+);
