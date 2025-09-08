@@ -41,7 +41,7 @@ func main() {
 		var id, age int
 		var name string
 		rows.Scan(&id, &name, &age) // 按列顺序扫描到变量
-		fmt.Sprintln(id, name, age)
+		fmt.Printf("----row----id(%d)--name(%s)--age(%d)---\n", id, name, age)
 	}
 	if err = rows.Err(); err != nil { // 检查遍历错误
 		panic(err)

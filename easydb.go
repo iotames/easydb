@@ -56,7 +56,7 @@ func NewEasyDb(driverName, dbHost, dbUser, dbPassword, dbName string, dbPort int
 		for k := range driverMap {
 			supportDrivs = append(supportDrivs, k)
 		}
-		panic(fmt.Sprintf("driverName 不支持%s 仅支持: %s 要使用其他数据库，请自行选择驱动，然后调用NewEasyDbBySqlDB方法。可用驱动请移步链接：https://golang.org/s/sqldrivers", driverName, strings.Join(supportDrivs, ",")))
+		panic(fmt.Sprintf("driverName参数不支持%s，仅支持[%s]。请自选合适的数据库驱动，并用NewEasyDbBySqlDB方法初始化。可用驱动：https://golang.org/s/sqldrivers", driverName, strings.Join(supportDrivs, ",")))
 	}
 	var err error
 	var sqldb *sql.DB
