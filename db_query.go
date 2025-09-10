@@ -11,10 +11,11 @@ import (
 // querySQL SQL查询语句 例：select field1, field2 from table1 where name = $1 and status = $2
 // dest: 用于接收结果的结构体指针或map[string]any
 // args: SQL参数
+// 示例：
 //
-// data := make(map[string]interface{}, 3)
-// d.GetOneData("SELECT id, name, age, wallet_balance FROM $1", &data, "users")
-// fmt.Printf("-----GetOneData--result(%+v)----\n", d.DecodeInterface(data))
+//	data := make(map[string]interface{}, 3)
+//	d.GetOneData("SELECT id, name, age, wallet_balance FROM $1", &data, "users")
+//	fmt.Printf("-----GetOneData--result(%+v)----\n", d.DecodeInterface(data))
 func (d *EasyDb) GetOneData(querySQL string, dest interface{}, args ...interface{}) error {
 	val := reflect.ValueOf(dest)
 	if val.Kind() != reflect.Ptr || val.IsNil() {
@@ -55,6 +56,11 @@ func (d *EasyDb) GetOneData(querySQL string, dest interface{}, args ...interface
 
 // DecodeInterface 用于解码GetOneData方法返回的结果
 // data 参数类型实际是 map[string][]byte
+// 示例：
+//
+//	data := make(map[string]interface{}, 3)
+//	d.GetOneData("SELECT id, name, age, wallet_balance FROM $1", &data, "users")
+//	fmt.Printf("-----GetOneData--result(%+v)----\n", d.DecodeInterface(data))
 func (d EasyDb) DecodeInterface(data map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for key, value := range data {
@@ -85,68 +91,15 @@ func (d EasyDb) DecodeInterface(data map[string]interface{}) map[string]interfac
 	return result
 }
 
-// 动态扫描到map（使用sql.Rows）
-func (d *EasyDb) scanRowToMap(rows *sql.Rows, dest *map[string]any) error {
-	cols, err := rows.Columns()
-	if err != nil {
-		return fmt.Errorf("获取列失败: %v", err)
-	}
-
-	values := make([]interface{}, len(cols))
-	for i := range values {
-		values[i] = new(interface{})
-	}
-
-	if err := rows.Scan(values...); err != nil {
-		return fmt.Errorf("扫描失败: %v", err)
-	}
-
-	result := make(map[string]any)
-	for i, col := range cols {
-		result[col] = *(values[i].(*interface{}))
-	}
-	*dest = result
-	return nil
-}
-
-// 扫描到结构体（通用逻辑）
-func (d *EasyDb) scanRowToStruct(rows *sql.Rows, dest interface{}) error {
-	// 使用rows.Columns()验证列与结构体标签匹配
-	cols, err := rows.Columns()
-	if err != nil {
-		return fmt.Errorf("获取列失败: %v", err)
-	}
-
-	destVal := reflect.ValueOf(dest).Elem()
-	fields := make([]interface{}, len(cols))
-
-	// 按列名映射结构体字段
-	for i, col := range cols {
-		fieldFound := false
-		for j := 0; j < destVal.NumField(); j++ {
-			tag := destVal.Type().Field(j).Tag.Get("db")
-			if tag == col {
-				fields[i] = destVal.Field(j).Addr().Interface()
-				fieldFound = true
-				break
-			}
-		}
-		if !fieldFound {
-			return fmt.Errorf("列 %s 无对应的结构体字段", col)
-		}
-	}
-
-	return rows.Scan(fields...)
-}
-
 // GetOne 根据where条件查询单条数据
 // querySQL SQL查询语句
 // args: SQL参数
 // dest: 用于接收结果的结构体指针
+// 示例：
 //
-// var qrid *int
-// var qrToUrl *string
-// GetOne("select id, to_url from qr_list where code = $1", []interface{}{qrid, qrToUrl}, "codexxx")
+//	var qrid *int
+//	var qrToUrl *string
+//	GetOne("select id, to_url from qr_list where code = $1", []interface{}{qrid, qrToUrl}, "codexxx")
 func (d *EasyDb) GetOne(querySQL string, dest []interface{}, args ...interface{}) error {
 	// 使用预处理语句执行查询，防止SQL注入
 	stmt, err := d.db.Prepare(querySQL)
@@ -171,6 +124,10 @@ func (d *EasyDb) GetOne(querySQL string, dest []interface{}, args ...interface{}
 // querySQL SQL查询语句
 // dest: 用于接收结果的切片指针
 // args: SQL参数
+// 示例：
+//
+//	var datalist []map[string]interface{}
+//	d.GetMany("SELECT id, name, age, wallet_balance FROM users", &datalist)
 func (d *EasyDb) GetMany(querySQL string, dest interface{}, args ...interface{}) error {
 	// 使用预处理语句执行查询，防止SQL注入
 	stmt, err := d.db.Prepare(querySQL)
@@ -188,67 +145,4 @@ func (d *EasyDb) GetMany(querySQL string, dest interface{}, args ...interface{})
 
 	// 使用sql.Rows.Scan将结果扫描到目标切片
 	return d.scanRows(rows, dest)
-}
-
-// scanRows 将sql.Rows的结果扫描到目标切片中
-func (d *EasyDb) scanRows(rows *sql.Rows, dest interface{}) error {
-	v := reflect.ValueOf(dest)
-	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Slice {
-		return fmt.Errorf("目标参数必须是切片指针")
-	}
-	sliceVal := v.Elem()
-	elemType := sliceVal.Type().Elem()
-	for rows.Next() {
-		var elem reflect.Value
-		if elemType.Kind() == reflect.Map {
-			// 处理map[string]interface{}
-			cols, err := rows.Columns()
-			if err != nil {
-				return err
-			}
-			values := make([]interface{}, len(cols))
-			for i := range values {
-				values[i] = new(interface{})
-			}
-			if err := rows.Scan(values...); err != nil {
-				return err
-			}
-			m := reflect.MakeMap(elemType)
-			for i, col := range cols {
-				m.SetMapIndex(reflect.ValueOf(col), reflect.ValueOf(*(values[i].(*interface{}))))
-			}
-			elem = m
-		} else if elemType.Kind() == reflect.Struct {
-			// 处理结构体
-			newElem := reflect.New(elemType).Interface()
-			cols, err := rows.Columns()
-			if err != nil {
-				return err
-			}
-			fields := make([]interface{}, len(cols))
-			destVal := reflect.ValueOf(newElem).Elem()
-			for i, col := range cols {
-				fieldFound := false
-				for j := 0; j < destVal.NumField(); j++ {
-					tag := destVal.Type().Field(j).Tag.Get("db")
-					if tag == col {
-						fields[i] = destVal.Field(j).Addr().Interface()
-						fieldFound = true
-						break
-					}
-				}
-				if !fieldFound {
-					return fmt.Errorf("列 %s 无对应的结构体字段", col)
-				}
-			}
-			if err := rows.Scan(fields...); err != nil {
-				return err
-			}
-			elem = destVal
-		} else {
-			return fmt.Errorf("不支持的切片元素类型: %v", elemType.Kind())
-		}
-		sliceVal.Set(reflect.Append(sliceVal, elem))
-	}
-	return rows.Err()
 }
