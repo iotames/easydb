@@ -1,13 +1,13 @@
 package easydb
 
 import (
+	"database/sql"
 	"fmt"
 	"testing"
-	// "database/sql"
 )
 
 func TestPostgresAdd(t *testing.T) {
-	// var sqldb *sql.DB
+	var sqldb *sql.DB
 	var err error
 	sqlCreateTable := `CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -16,9 +16,12 @@ func TestPostgresAdd(t *testing.T) {
 		wallet_balance DECIMAL(10,2) DEFAULT 0.00
     )`
 
-	// sqldb, _ = sql.Open("postgres", "user=postgres password=postgres dbname=postgres host=127.0.0.1 port=5432 sslmode=disable search_path=public")
-	// d = NewEasyDbBySqlDB(sqldb)
-	d := NewEasyDb("postgres", "127.0.0.1", "postgres", "postgres", "postgres", 5432)
+	sqldb, err = sql.Open("postgres", "user=postgres password=postgres dbname=postgres host=127.0.0.1 port=5432 sslmode=disable search_path=public")
+	if err != nil {
+		t.Error(err)
+	}
+	d := NewEasyDbBySqlDB(sqldb)
+	// d := NewEasyDb("postgres", "127.0.0.1", "postgres", "postgres", "postgres", 5432)
 	_, err = d.Exec(sqlCreateTable)
 	if err != nil {
 		t.Error(err)
@@ -36,12 +39,17 @@ func TestPostgresAdd(t *testing.T) {
 }
 
 func TestPostgresQuery(t *testing.T) {
+	testDb(t, "postgres")
+	testDb(t, "odoo")
+}
+
+func testDb(t *testing.T, dbname string) {
 	var err error
-	d := NewEasyDb("postgres", "127.0.0.1", "postgres", "postgres", "postgres", 5432)
-	data := make(map[string]interface{}, 3)
+	d := NewEasyDb("postgres", "127.0.0.1", "postgres", "postgres", dbname, 5432)
+	data := make(map[string]any, 2)
 	// FROM 后面不能放占位符，应接真实的数据表名。否则报错【预处理SQL语句失败: pq: 语法错误 在 "$1" 或附近的】
 	// err = d.GetOneData("SELECT id, name, age, wallet_balance FROM users WHERE id = $1", &data, 10)
-	err = d.GetOneData("SELECT id ID, name AS 姓名, age AS 年龄, wallet_balance AS 钱包余额 FROM users ORDER BY id DESC", &data)
+	err = d.GetOneData("SELECT id ID, name AS 姓名, age AS 年龄, wallet_balance AS 钱包余额 FROM users ORDER BY id DESC", data)
 	if err != nil {
 		t.Error(err)
 	}
@@ -50,14 +58,14 @@ func TestPostgresQuery(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	t.Logf("---GetOneData--resultRAW(%+v)---resultDecode(%+v)--user(%+v)----\n", data, d.DecodeInterface(data), user)
-	var datalist []map[string]interface{}
+	t.Logf("---GetOneData--dbname(%s)--resultMap(%+v)--user(%+v)----\n", dbname, data, user)
+	var datalist []map[string]any
 	err = d.GetMany("SELECT id, name, age, wallet_balance FROM users", &datalist)
 	if err != nil {
 		t.Error(err)
 	}
 	for i := range datalist {
-		t.Logf("---GetMany--row(%d)---result(%+v)----\n", i, datalist[i])
+		t.Logf("---GetMany--row(%d)---resultMap(%+v)----\n", i, datalist[i])
 	}
 	var users []User
 	err = d.GetMany("SELECT id, name, age, wallet_balance FROM users", &users)

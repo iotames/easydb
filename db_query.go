@@ -4,21 +4,31 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
-	"strconv"
 )
 
 // GetOneData 根据where条件查询单条数据，支持结构体指针或map接收结果
 // querySQL SQL查询语句 例：select field1, field2 from table1 where name = $1 and status = $2
-// dest: 用于接收结果的结构体指针或map[string]any
+// dest: 用于接收结果的结构体指针或map[string]any, *map[string]any
 // args: SQL参数
 // 示例：
 //
 //	data := make(map[string]interface{}, 3)
-//	d.GetOneData("SELECT id, name, age, wallet_balance FROM $1", &data, "users")
-//	fmt.Printf("-----GetOneData--result(%+v)----\n", d.DecodeInterface(data))
+//	d.GetOneData("SELECT id, name, age, wallet_balance FROM $1", data, "users")
+//	// 传指针亦可 d.GetOneData("SELECT id, name, age, wallet_balance FROM $1", &data, "users")
+//	fmt.Printf("-----GetOneData--result(%+v)----\n", data)
 func (d *EasyDb) GetOneData(querySQL string, dest interface{}, args ...interface{}) error {
 	val := reflect.ValueOf(dest)
-	if val.Kind() != reflect.Ptr || val.IsNil() {
+	// if val.Kind() == reflect.Map {
+	// 	return fmt.Errorf("dest不能直接传map，要传有效的非空指针")
+	// }
+	// if val.Kind() != reflect.Ptr || val.IsNil() {
+	// 	return fmt.Errorf("dest必须是有效的非空指针")
+	// }
+
+	if val.IsNil() {
+		return fmt.Errorf("dest的值不能为nil")
+	}
+	if val.Kind() != reflect.Ptr && val.Kind() != reflect.Map {
 		return fmt.Errorf("dest必须是有效的非空指针")
 	}
 
@@ -45,6 +55,8 @@ func (d *EasyDb) GetOneData(querySQL string, dest interface{}, args ...interface
 
 	switch dd := dest.(type) {
 	case *map[string]any:
+		return d.scanRowToMap(rows, *dd)
+	case map[string]any:
 		return d.scanRowToMap(rows, dd)
 	default:
 		if val.Elem().Kind() == reflect.Struct {
@@ -62,33 +74,7 @@ func (d *EasyDb) GetOneData(querySQL string, dest interface{}, args ...interface
 //	d.GetOneData("SELECT id, name, age, wallet_balance FROM $1", &data, "users")
 //	fmt.Printf("-----GetOneData--result(%+v)----\n", d.DecodeInterface(data))
 func (d EasyDb) DecodeInterface(data map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-	for key, value := range data {
-		switch v := value.(type) {
-		case []byte:
-			strVal := string(v)
-			// 尝试转为int64
-			if i, err := strconv.ParseInt(strVal, 10, 64); err == nil {
-				result[key] = i
-				continue
-			}
-			// 尝试转为float64
-			if f, err := strconv.ParseFloat(strVal, 64); err == nil {
-				result[key] = f
-				continue
-			}
-			// 尝试转为bool
-			if b, err := strconv.ParseBool(strVal); err == nil {
-				result[key] = b
-				continue
-			}
-			// 其他情况保留为string
-			result[key] = strVal
-		default:
-			result[key] = value
-		}
-	}
-	return result
+	return decodeMapAny(data)
 }
 
 // GetOne 根据where条件查询单条数据
@@ -122,7 +108,7 @@ func (d *EasyDb) GetOne(querySQL string, dest []interface{}, args ...interface{}
 
 // GetMany 根据where条件查询多条数据
 // querySQL SQL查询语句
-// dest: 用于接收结果的切片指针
+// dest: 用于接收结果的切片的指针
 // args: SQL参数
 // 示例：
 //

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"strconv"
 )
 
 // scanRows 扫描*sql.Rows数据到切片指针
@@ -18,7 +19,6 @@ func (d *EasyDb) scanRows(rows *sql.Rows, dest interface{}) error {
 	for rows.Next() {
 		var elem reflect.Value
 		if elemType.Kind() == reflect.Map {
-			// 处理map[string]interface{}
 			cols, err := rows.Columns()
 			if err != nil {
 				return err
@@ -32,7 +32,8 @@ func (d *EasyDb) scanRows(rows *sql.Rows, dest interface{}) error {
 			}
 			m := reflect.MakeMap(elemType)
 			for i, col := range cols {
-				m.SetMapIndex(reflect.ValueOf(col), reflect.ValueOf(*(values[i].(*interface{}))))
+				vv := decodeAny(*(values[i].(*interface{})))
+				m.SetMapIndex(reflect.ValueOf(col), reflect.ValueOf(vv))
 			}
 			elem = m
 		} else if elemType.Kind() == reflect.Struct {
@@ -71,7 +72,8 @@ func (d *EasyDb) scanRows(rows *sql.Rows, dest interface{}) error {
 }
 
 // scanRowToMap 扫描*sql.Rows数据到*map[string]any
-func (d *EasyDb) scanRowToMap(rows *sql.Rows, dest *map[string]any) error {
+// func (d *EasyDb) scanRowToMap(rows *sql.Rows, dest *map[string]any) error {
+func (d *EasyDb) scanRowToMap(rows *sql.Rows, dest map[string]any) error {
 	cols, err := rows.Columns()
 	if err != nil {
 		return fmt.Errorf("获取列失败: %v", err)
@@ -86,11 +88,13 @@ func (d *EasyDb) scanRowToMap(rows *sql.Rows, dest *map[string]any) error {
 		return fmt.Errorf("扫描失败: %v", err)
 	}
 
-	result := make(map[string]any)
+	// result := make(map[string]any)
 	for i, col := range cols {
-		result[col] = *(values[i].(*interface{}))
+		dtval := *(values[i].(*interface{}))
+		// result[col] = decodeAny(dtval)
+		dest[col] = decodeAny(dtval)
 	}
-	*dest = result
+	// *dest = result
 	return nil
 }
 
@@ -122,4 +126,37 @@ func (d *EasyDb) scanRowToStruct(rows *sql.Rows, dest interface{}) error {
 	}
 
 	return rows.Scan(fields...)
+}
+
+func decodeMapAny(data map[string]any) map[string]any {
+	result := make(map[string]any, len(data))
+	for key, value := range data {
+		result[key] = decodeAny(value)
+	}
+	return result
+
+}
+
+func decodeAny(value any) any {
+	switch v := value.(type) {
+	case []byte:
+		strVal := string(v)
+		// 尝试转为int64
+		if i, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+			return i
+		}
+		// 尝试转为float64
+		if f, err := strconv.ParseFloat(strVal, 64); err == nil {
+			return f
+		}
+		// 尝试转为bool
+		if b, err := strconv.ParseBool(strVal); err == nil {
+			return b
+		}
+		return strVal
+
+	default:
+		// result[key] = value
+		return value
+	}
 }
