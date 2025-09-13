@@ -7,9 +7,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
 )
 
 var (
@@ -40,27 +37,54 @@ type EasyDb struct {
 	db *sql.DB
 }
 
-// NewEasyDb 初始化EasyDb数据库连接实例
+// NewEasyDb 初始化EasyDb数据库连接实例。
 // driverName See https://golang.org/s/sqldrivers for a list of third-party drivers.
+//
+// 示例：
+//
+//	import (
+//	"github.com/iotames/easydb"
+//	_ "github.com/go-sql-driver/mysql"
+//	_ "github.com/lib/pq"
+//	)
+//	d := easydb.NewEasyDb("mysql", "127.0.0.1", "root", "password", "testdb", 3306)
+//	d1 := easydb.NewEasyDb("postgres", "127.0.0.1", "username", "password", "testdb", 5432)
 func NewEasyDb(driverName, dbHost, dbUser, dbPassword, dbName string, dbPort int) *EasyDb {
-	var driverMap = map[string]string{
-		// "user=postgres password=postgres dbname=postgres host=127.0.0.1 port=5432 sslmode=disable search_path=public" or "postgres://pqgotest:password@localhost/pqgotest?sslmode=verify-full" See: https://pkg.go.dev/github.com/lib/pq
-		"postgres": fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%d sslmode=disable", dbUser, dbPassword, dbName, dbHost, dbPort),
-		// username:password@protocol(address)/dbname?param=value See: https://github.com/go-sql-driver/mysql/
-		"mysql": fmt.Sprintf(`%s:%s@tcp(%s:%d)/%s`, dbUser, dbPassword, dbHost, dbPort, dbName),
-	}
+	cf := NewDsnConf(driverName, dbHost, dbUser, dbPassword, dbName, dbPort)
+	return NewEasyDbByConf(*cf)
+}
 
-	driv, ok := driverMap[driverName]
-	if !ok {
-		var supportDrivs []string
-		for k := range driverMap {
-			supportDrivs = append(supportDrivs, k)
-		}
-		panic(fmt.Sprintf("driverName参数不支持%s，仅支持[%s]。请自选合适的数据库驱动，并用NewEasyDbBySqlDB方法初始化。可用驱动：https://golang.org/s/sqldrivers", driverName, strings.Join(supportDrivs, ",")))
-	}
+// NewEasyDbByConf 使用DsnConf参数初始化EasyDb实例。
+// 示例：
+//
+//	import (
+//	"github.com/iotames/easydb"
+//	_ "github.com/go-sql-driver/mysql"
+//	_ "github.com/lib/pq"
+//	)
+//	cf := easydb.NewDsnConf("mysql", "127.0.0.1", "root", "password", "testdb", 3306)
+//	// 可选：cf.UpdateDsnTpl("mysql", "DB_USER:DB_PASSWORD@tcp(DB_HOST:DB_PORT)/DB_NAME?charset=utf8mb4&parseTime=True&loc=Local")
+//	dbmysql := easydb.NewEasyDbByConf(*cf)
+//	cfpg := easydb.NewDsnConf("postgres", "127.0.0.1", "username", "password", "testdb", 5432)
+//	// 可选：cfpg.UpdateDsnTpl("postgres", "user=DB_USER password=DB_PASSWORD dbname=DB_NAME host=DB_HOST port=DB_PORT sslmode=disable search_path=public")
+//	dbpg := easydb.NewEasyDbByConf(*cfpg)
+func NewEasyDbByConf(cf DsnConf) *EasyDb {
 	var err error
+	var dsn string
+	if !cf.CheckAvailable() {
+		var supportDrivers []string
+		dmp := cf.GetAvailableDsnTplMap()
+		for k := range dmp {
+			supportDrivers = append(supportDrivers, k)
+		}
+		panic(fmt.Sprintf("driverName不支持%s，仅支持[%s]。请自选合适的数据库驱动，调用NewEasyDbBySqlDB或NewEasyDbByConf方法初始化。可用驱动：https://golang.org/s/sqldrivers", cf.DriverName, strings.Join(supportDrivers, ",")))
+	}
+	dsn, err = cf.GetDsn()
+	if err != nil {
+		panic(err)
+	}
 	var sqldb *sql.DB
-	sqldb, err = sql.Open(driverName, driv)
+	sqldb, err = sql.Open(cf.DriverName, dsn)
 	if err != nil {
 		panic(err)
 	}
@@ -68,20 +92,20 @@ func NewEasyDb(driverName, dbHost, dbUser, dbPassword, dbName string, dbPort int
 }
 
 // NewEasyDbBySqlDB 使用sqldb *sql.DB参数初始化EasyDb实例。
-// 各数据库驱动如下所示：
 //
-// import (
+// 各数据库驱动：https://golang.org/s/sqldrivers
 //
+//	import (
+//	"github.com/iotames/easydb"
 //	_ "github.com/go-sql-driver/mysql"
 //	_ "github.com/lib/pq"
 //	_ "github.com/mattn/go-sqlite3"
+//	)
 //
-// )
-//
-//			  sqldb, err = sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/debugdb")
-//	     //  sqldb, err = sql.Open("postgres", "user=postgres password=postgres dbname=postgres host=127.0.0.1 port=5432 sslmode=disable search_path=public")
-//	     //  sqldb, err := sql.Open("sqlite3", "./mydb.sqlite")
-//		      d := NewEasyDbBySqlDB(sqldb)
+//	sqldb, err = sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/debugdb")
+//	//  sqldb, err = sql.Open("postgres", "user=postgres password=postgres dbname=postgres host=127.0.0.1 port=5432 sslmode=disable search_path=public")
+//	//  sqldb, err := sql.Open("sqlite3", "./mydb.sqlite")
+//	d := NewEasyDbBySqlDB(sqldb)
 func NewEasyDbBySqlDB(sqldb *sql.DB) *EasyDb {
 	return &EasyDb{db: sqldb}
 }
@@ -105,6 +129,7 @@ func (d *EasyDb) Ping() error {
 	return d.db.Ping()
 }
 
+// CloseDb 关闭整个数据库连接池
 func (d *EasyDb) CloseDb() error {
 	return d.db.Close()
 }
