@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+	// _ "github.com/lib/pq"
 )
 
 func TestPostgresAdd(t *testing.T) {
@@ -41,6 +42,44 @@ func TestPostgresAdd(t *testing.T) {
 func TestPostgresQuery(t *testing.T) {
 	testDb(t, "postgres")
 	testDb(t, "odoo")
+}
+
+func TestPostgresQueryList(t *testing.T) {
+	var err error
+	d := NewEasyDb("postgres", "127.0.0.1", "postgres", "postgres", "postgres", 5432)
+	var username []string
+	err = d.GetMany("SELECT name FROM users", &username)
+	if err != nil {
+		t.Error(err)
+	}
+	var ages []int
+	err = d.GetMany("SELECT age FROM users", &ages)
+	if err != nil {
+		t.Error(err)
+	}
+	var money []float64
+	err = d.GetMany("SELECT wallet_balance FROM users", &money)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var ids []any
+	err = d.GetMany("SELECT id FROM users", &ids)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var datalist []User
+	err = d.GetMany("SELECT id, name, age, wallet_balance FROM users", &datalist)
+	if err != nil {
+		t.Error(err)
+	}
+
+	t.Logf("---TestPostgresQueryList---name-Result(%+v)---", username)
+	t.Logf("---TestPostgresQueryList--ages-Result(%+v)---", ages)
+	t.Logf("---TestPostgresQueryList--money-Result(%+v)---", money)
+	t.Logf("---TestPostgresQueryList--ids-Result(%+v)---", ids)
+	t.Logf("---TestPostgresQueryList--users-Result(%+v)---", datalist)
 }
 
 func testDb(t *testing.T, dbname string) {
