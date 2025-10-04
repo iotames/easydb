@@ -11,9 +11,14 @@ import (
 // Exec 重写Exec方法以记录SQL查询
 func (d *EasyDb) Exec(query string, args ...interface{}) (sql.Result, error) {
 	start := time.Now()
-	// log.Printf("执行SQL: %s 参数: %v", query, args)
+	if d.loglevel > 1 {
+		log.Printf("Exec SQL: (%s) args: (%v)", query, args)
+	}
 	result, err := d.db.Exec(query, args...)
-	log.Printf("SQL执行完成，耗时: %v", time.Since(start))
+	if d.loglevel > 0 {
+		// 中文字符在SSH控制台可能输出UTF-8 编码的字节序列，每个字节表示成十六进制的 <XX> 形式
+		log.Printf("SQL Exec Done. Cost: %v", time.Since(start))
+	}
 	return result, err
 }
 

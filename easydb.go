@@ -34,7 +34,13 @@ func SetEasyDb(edb *EasyDb) {
 }
 
 type EasyDb struct {
-	db *sql.DB
+	db       *sql.DB
+	loglevel int
+}
+
+// SowLog 展示运行日志。默认0为不展示。数值越大越详细。
+func (d *EasyDb) SowLog(level int) {
+	d.loglevel = level
 }
 
 // NewEasyDb 初始化EasyDb数据库连接实例。
@@ -113,9 +119,13 @@ func NewEasyDbBySqlDB(sqldb *sql.DB) *EasyDb {
 // Query 重写Query方法以记录SQL查询
 func (d *EasyDb) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	start := time.Now()
-	// log.Printf("查询SQL: %s 参数: %v", query, args)
+	if d.loglevel > 1 {
+		log.Printf("Query SQL: (%s) args: (%v)", query, args)
+	}
 	rows, err := d.db.Query(query, args...)
-	log.Printf("SQL查询完成，耗时: %v", time.Since(start))
+	if d.loglevel > 0 {
+		log.Printf("Query Done. Cost: %v", time.Since(start))
+	}
 	return rows, err
 }
 
