@@ -43,6 +43,11 @@ func (d *EasyDb) SowLog(level int) {
 	d.loglevel = level
 }
 
+// GetSqlDB 获取*sql.DB实例
+func (d *EasyDb) GetSqlDB() *sql.DB {
+	return d.db
+}
+
 // NewEasyDb 初始化EasyDb数据库连接实例。
 // driverName See https://golang.org/s/sqldrivers for a list of third-party drivers.
 //
