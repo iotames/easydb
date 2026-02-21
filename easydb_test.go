@@ -40,8 +40,8 @@ func TestPostgresAdd(t *testing.T) {
 }
 
 func TestPostgresQuery(t *testing.T) {
-	testDb(t, "postgres")
-	testDb(t, "odoo")
+	TestPostgresDb(t, "postgres")
+	TestPostgresDb(t, "odoo")
 }
 
 func TestPostgresQueryList(t *testing.T) {
@@ -82,7 +82,7 @@ func TestPostgresQueryList(t *testing.T) {
 	t.Logf("---TestPostgresQueryList--users-Result(%+v)---", datalist)
 }
 
-func testDb(t *testing.T, dbname string) {
+func TestPostgresDb(t *testing.T, dbname string) {
 	var err error
 	d := NewEasyDb("postgres", "127.0.0.1", "postgres", "postgres", dbname, 5432)
 	data := make(map[string]any, 2)

@@ -8,6 +8,7 @@ import (
 
 const DSN_TPL_MYSQL = "DB_USER:DB_PASSWORD@tcp(DB_HOST:DB_PORT)/DB_NAME"
 const DSN_TPL_POSTGRES = "user=DB_USER password=DB_PASSWORD dbname=DB_NAME host=DB_HOST port=DB_PORT sslmode=disable"
+const DSN_TPL_SQLITE = "DB_NAME.db"
 
 type DsnConf struct {
 	DriverName                         string
@@ -35,6 +36,7 @@ func NewDsnConf(driverName, dbHost, dbUser, dbPassword, dbName string, dbPort in
 	mp := map[string]string{
 		"mysql":    DSN_TPL_MYSQL,
 		"postgres": DSN_TPL_POSTGRES,
+		"sqlite3":  DSN_TPL_SQLITE,
 	}
 	return &DsnConf{DriverName: strings.ToLower(driverName), DbHost: dbHost, DbUser: dbUser, DbPassword: dbPassword, DbName: dbName, DbPort: dbPort, dsnTplMap: mp}
 }
@@ -89,8 +91,8 @@ func (cf DsnConf) GetAvailableDsnTplMap() map[string]string {
 // 示例：
 //
 //	// test.db是dbName参数，填sqlite3的文件名，可以换成绝对路径
-//	cf := easydb.NewDsnConf("sqlite3", "", "", "", "test.db", 0)
-//	err := cf.AddDsnTpl("sqlite3", "DB_NAME")
+//	cf := easydb.NewDsnConf("sqlite3", "", "", "", "testdb", 0)
+//	err := cf.AddDsnTpl("sqlite3", "DB_NAME.db")
 func (cf *DsnConf) AddDsnTpl(driverName, dsnTpl string) error {
 	if cf.dsnTplMap == nil {
 		cf.dsnTplMap = make(map[string]string)

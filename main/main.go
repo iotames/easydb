@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/iotames/easydb"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var DbDriver, DbHost, DbUser, DbPassword, DbName string
