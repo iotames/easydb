@@ -99,7 +99,7 @@ func (d *DsnGroup) appendDsn(name, driverName, dsn string) error {
 		return fmt.Errorf("数据库驱动%s未注册。已注册的数据库驱动有：%v", driverName, drivers)
 	}
 	if driverName == "mysql" {
-		if err := checkMySQLDSNPassword(dsn); err != nil {
+		if err := CheckMySQLDSNPassword(dsn); err != nil {
 			return err
 		}
 	}
@@ -147,10 +147,10 @@ func findLastDSNAt(dsn string) int {
 	return -1
 }
 
-// checkMySQLDSNPassword 检测 MySQL DSN 密码中是否含裸 @。
+// CheckMySQLDSNPassword 检测 MySQL DSN 密码中是否含裸 @。
 // 密码中的 @ 会与 @network( 分隔符混淆，导致 DSN 解析失败。
 // 由于 DSN 是完整字符串传入，不确定密码是否已编码，故不自动编码，而是报错提示。
-func checkMySQLDSNPassword(dsn string) error {
+func CheckMySQLDSNPassword(dsn string) error {
 	atIdx := findLastDSNAt(dsn)
 	if atIdx < 0 {
 		// 无法确定 DSN 结构，跳过校验
