@@ -40,8 +40,8 @@ func TestPostgresAdd(t *testing.T) {
 }
 
 func TestPostgresQuery(t *testing.T) {
-	TestPostgresDb(t, "postgres")
-	TestPostgresDb(t, "odoo")
+	postgresDbTest(t, "postgres")
+	postgresDbTest(t, "odoo")
 }
 
 func TestPostgresQueryList(t *testing.T) {
@@ -82,7 +82,7 @@ func TestPostgresQueryList(t *testing.T) {
 	t.Logf("---TestPostgresQueryList--users-Result(%+v)---", datalist)
 }
 
-func TestPostgresDb(t *testing.T, dbname string) {
+func postgresDbTest(t *testing.T, dbname string) {
 	var err error
 	d := NewEasyDb("postgres", "127.0.0.1", "postgres", "postgres", dbname, 5432)
 	data := make(map[string]any, 2)
@@ -113,6 +113,46 @@ func TestPostgresDb(t *testing.T, dbname string) {
 	}
 	for i, user := range users {
 		t.Logf("---GetMany--row(%d)---result(%+v)----\n", i, user)
+	}
+}
+
+func TestGetDsnMySQL(t *testing.T) {
+	tests := []struct {
+		name     string
+		password string
+		want     string
+	}{
+		{"normal password", "mypass", "root:mypass@tcp(127.0.0.1:3306)/testdb"},
+		{"password with @", "pass@word", "root:pass%40word@tcp(127.0.0.1:3306)/testdb"},
+		{"password with colon", "pass:word", "root:pass%3Aword@tcp(127.0.0.1:3306)/testdb"},
+		{"password with #", "pass#word", "root:pass%23word@tcp(127.0.0.1:3306)/testdb"},
+		{"password with /", "pass/word", "root:pass%2Fword@tcp(127.0.0.1:3306)/testdb"},
+		{"password with space", "pass word", "root:pass+word@tcp(127.0.0.1:3306)/testdb"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cf := NewDsnConf("mysql", "127.0.0.1", "root", tt.password, "testdb", 3306)
+			dsn, err := cf.GetDsn()
+			if err != nil {
+				t.Fatalf("GetDsn() error = %v", err)
+			}
+			if dsn != tt.want {
+				t.Errorf("GetDsn() = %q, want %q", dsn, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetDsnPostgres(t *testing.T) {
+	// PostgreSQL 密码不应被 URL 编码
+	cf := NewDsnConf("postgres", "127.0.0.1", "postgres", "pass@word", "testdb", 5432)
+	dsn, err := cf.GetDsn()
+	if err != nil {
+		t.Fatalf("GetDsn() error = %v", err)
+	}
+	want := "user=postgres password=pass@word dbname=testdb host=127.0.0.1 port=5432 sslmode=disable"
+	if dsn != want {
+		t.Errorf("GetDsn() = %q, want %q", dsn, want)
 	}
 }
 

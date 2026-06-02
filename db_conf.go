@@ -3,6 +3,7 @@ package easydb
 import (
 	"database/sql"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -48,7 +49,13 @@ func (cf DsnConf) GetDsn() (string, error) {
 		return "", err
 	}
 	dsn := strings.ReplaceAll(tpl, "DB_USER", cf.DbUser)
-	dsn = strings.ReplaceAll(dsn, "DB_PASSWORD", cf.DbPassword)
+	// MySQL DSN 格式为 user:password@tcp(host:port)/dbname，
+	// 密码中的 @、: 等特殊字符会破坏 DSN 结构，此处自动 URL 编码
+	password := cf.DbPassword
+	if cf.DriverName == "mysql" {
+		password = url.QueryEscape(password)
+	}
+	dsn = strings.ReplaceAll(dsn, "DB_PASSWORD", password)
 	dsn = strings.ReplaceAll(dsn, "DB_NAME", cf.DbName)
 	dsn = strings.ReplaceAll(dsn, "DB_HOST", cf.DbHost)
 	dsn = strings.ReplaceAll(dsn, "DB_PORT", fmt.Sprintf("%d", cf.DbPort))
