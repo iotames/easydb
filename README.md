@@ -7,6 +7,11 @@
 3. 仅在官方库基础上做轻量级封装，摆脱ORM等框架束缚，回归底层，重新找回对数据库的掌控。
 
 
+## 使用方
+
+[RockSys磐石网关](https://github.com/iotames/rocksys)——开源流量网关，统一承接安全防护、访问控制与流量调度；业务系统向前迭代，磐石在后面保持稳定。
+
+
 ## 各数据库驱动实现
 
 - MySQL：github.com/go-sql-driver/mysql
