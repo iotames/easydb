@@ -1,8 +1,21 @@
 package dsn
 
 import (
+	"database/sql"
+	"database/sql/driver"
+	"errors"
 	"testing"
 )
+
+// stubDriver 仅满足 sql.Register 的 driver.Driver 接口，用于测试驱动注册校验，
+// 不提供真实连接（Open 永远失败，测试不触达连接）。
+type stubDriver struct{}
+
+func (stubDriver) Open(name string) (driver.Conn, error) {
+	return nil, errors.New("stub driver: 仅供注册测试，不可连接")
+}
+
+func init() { sql.Register("dsntest-stub", stubDriver{}) }
 
 func TestCheckMySQLDSNPassword(t *testing.T) {
 	tests := []struct {
@@ -22,11 +35,34 @@ func TestCheckMySQLDSNPassword(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := checkMySQLDSNPassword(tt.dsn)
+			err := CheckMySQLDSNPassword(tt.dsn)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("checkMySQLDSNPassword(%q) error = %v, wantErr = %v", tt.dsn, err, tt.wantErr)
+				t.Errorf("CheckMySQLDSNPassword(%q) error = %v, wantErr = %v", tt.dsn, err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestAppendDsnDedup(t *testing.T) {
+	g := &DsnGroup{}
+	dsn1 := "stub://point?x=1"
+	if err := g.AppendNamedDsn("a", "dsntest-stub", dsn1); err != nil {
+		t.Fatalf("首次添加应成功: %v", err)
+	}
+	// 同 DSN 不同 Name：同 DSN 即同 Code，必须拦截（否则同 Code 双条目，按 code 删除语义未定义）
+	if err := g.AppendNamedDsn("b", "dsntest-stub", dsn1); err == nil {
+		t.Fatal("重复 DSN 未被拦截")
+	}
+	// 不同 DSN 正常追加
+	if err := g.AppendNamedDsn("c", "dsntest-stub", "stub://point?x=2"); err != nil {
+		t.Fatalf("不同 DSN 添加应成功: %v", err)
+	}
+	if len(g.DsnList) != 2 {
+		t.Fatalf("添加去重后应恰好 2 条，实际 %d 条", len(g.DsnList))
+	}
+	// 未注册驱动照旧拦截（原有行为不回归）
+	if err := g.AppendNamedDsn("d", "no-such-driver", "x://y"); err == nil {
+		t.Fatal("未注册驱动未被拦截")
 	}
 }
 

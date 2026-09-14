@@ -98,6 +98,12 @@ func (d *DsnGroup) appendDsn(name, driverName, dsn string) error {
 	if miniutils.GetIndexOf(driverName, drivers) == -1 {
 		return fmt.Errorf("数据库驱动%s未注册。已注册的数据库驱动有：%v", driverName, drivers)
 	}
+	// DSN 去重：Code = md5(Dsn)，同 DSN 重复添加会产生同 Code 双条目，
+	// getDsnMap 相互覆盖、按 code 删除语义未定义——源头拦截。
+	// 报错不回显 DSN 原文（含密码，防泄露），以 Code 辅助定位。
+	if d.HasDsn(dsn) {
+		return fmt.Errorf("该 DSN 已存在（Code=%s），请勿重复添加同一连接串；如需调整请先删除原条目", miniutils.Md5(dsn))
+	}
 	if driverName == "mysql" {
 		if err := CheckMySQLDSNPassword(dsn); err != nil {
 			return err
