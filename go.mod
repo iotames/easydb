@@ -5,6 +5,7 @@ go 1.24.1
 require (
 	github.com/iotames/easyconf v1.1.3
 	github.com/iotames/miniutils v1.0.11
+	github.com/mattn/go-sqlite3 v1.14.53
 )
 
 require (
